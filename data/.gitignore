@@ -1,0 +1,8 @@
+# Raw recordings are never committed. The curated dataset is published
+# separately under CC-BY (see PROJECT.md §8).
+*.parquet
+*.meta.json
+*.csv
+sessions/
+!README.md
+!.gitignore

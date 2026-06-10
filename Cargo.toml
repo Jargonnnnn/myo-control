@@ -1,0 +1,8 @@
+[workspace]
+resolver = "3"
+members = ["crates/myo-rt"]
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0"
+rust-version = "1.85"
