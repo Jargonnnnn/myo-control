@@ -9,8 +9,7 @@ research spine is **decoder drift robustness** — quantifying and mitigating ho
 an EMG decoder degrades across days as electrode placement, arm position, and
 fatigue vary, and publishing the resulting multi-day dataset.
 
-See [`PROJECT.md`](PROJECT.md) for the full design, architecture, and
-constraints.
+Design notes and architecture decisions live under [`docs/`](docs/).
 
 > ## ⚠️ NOT A MEDICAL DEVICE
 >
@@ -30,7 +29,7 @@ synthetic EMG → windowing → time-domain features (RMS, MAV, WL, ZC, SSC)
               → parquet recording (+ .meta.json sidecar)
 ```
 
-No decoder, real board, or effector yet — see the roadmap in `PROJECT.md`.
+No decoder, real board, or effector yet.
 
 ## Quick start
 
@@ -56,7 +55,6 @@ recordings are never committed (the curated dataset is published separately).
 crates/myo-rt/     Rust real-time control loop (acquisition → features → effector)
 data/              recording schema + protocol (raw recordings gitignored)
 docs/              architecture notes, design specs
-PROJECT.md         full project context and constraints
 ```
 
 Future trees (`python/myotrain`, `firmware/`, `hardware/`) arrive with later
