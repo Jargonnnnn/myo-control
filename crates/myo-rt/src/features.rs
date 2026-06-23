@@ -103,6 +103,21 @@ impl FeatureSet {
         }
         fs
     }
+
+    /// Flatten channel-major as `[rms,mav,wl,zc,ssc]` per channel — the feature
+    /// contract shared with the Python trainer (see decoder spec).
+    pub fn to_vec(&self) -> Vec<f32> {
+        let n = self.rms.len();
+        let mut v = Vec::with_capacity(n * 5);
+        for c in 0..n {
+            v.push(self.rms[c]);
+            v.push(self.mav[c]);
+            v.push(self.wl[c]);
+            v.push(self.zc[c]);
+            v.push(self.ssc[c]);
+        }
+        v
+    }
 }
 
 /// Root mean square.
@@ -247,5 +262,36 @@ mod tests {
         assert_relative_eq!(fs.wl[1], 3.0);
         assert_relative_eq!(fs.zc[0], 3.0);
         assert_relative_eq!(fs.ssc[1], 0.0);
+    }
+
+    #[test]
+    fn to_vec_is_channel_major_in_feature_order() {
+        let mut w = Windower::new(4, 4, 2);
+        let samples = array![
+            [SQUARE[0], RAMP[0]],
+            [SQUARE[1], RAMP[1]],
+            [SQUARE[2], RAMP[2]],
+            [SQUARE[3], RAMP[3]],
+        ];
+        let windows = w.push(samples.view());
+        let v = FeatureSet::extract(&windows[0], 1e-5).to_vec();
+
+        // [rms,mav,wl,zc,ssc] for ch0 then ch1.
+        let expected = [
+            1.0,
+            1.0,
+            6.0,
+            3.0,
+            2.0, // ch0 = SQUARE
+            3.5_f32.sqrt(),
+            1.5,
+            3.0,
+            0.0,
+            0.0, // ch1 = RAMP
+        ];
+        assert_eq!(v.len(), expected.len());
+        for (got, want) in v.iter().zip(expected.iter()) {
+            assert_relative_eq!(got, want, epsilon = 1e-6);
+        }
     }
 }

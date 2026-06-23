@@ -1,4 +1,6 @@
 mod acquire;
+mod decode;
+mod effector;
 mod features;
 mod sink;
 
@@ -9,6 +11,8 @@ use thiserror::Error;
 use tracing::info;
 
 use acquire::{EmgSource, SyntheticSource};
+use decode::Decoder;
+use effector::{Effector, HandPose, VirtualHand};
 use features::{FeatureSet, Windower};
 use sink::{ParquetSink, SessionMeta};
 
@@ -21,6 +25,9 @@ pub enum MyoError {
 
     #[error("sink error: {0}")]
     Sink(String),
+
+    #[error("decode error: {0}")]
+    Decode(String),
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -67,6 +74,11 @@ struct Args {
     /// Seed for the synthetic source (determinism).
     #[arg(long, default_value_t = 1)]
     seed: u32,
+
+    /// Optional trained model card (JSON). With it, each window is decoded and
+    /// drives the virtual hand; without it, the loop just records.
+    #[arg(long)]
+    model: Option<String>,
 
     /// Skip real-time pacing and run as fast as possible.
     #[arg(long)]
@@ -123,9 +135,26 @@ fn run(args: Args) -> Result<(), MyoError> {
     };
     let mut sink = ParquetSink::create(std::path::Path::new(&args.out), &meta)?;
 
+    // Optional decoder + virtual hand. When a model is given, features are
+    // extracted with the card's threshold so the live loop matches training.
+    let decoder = match &args.model {
+        Some(path) => {
+            let dec = Decoder::load(std::path::Path::new(path))?;
+            if dec.channels() != channels {
+                return Err(MyoError::Decode(format!(
+                    "model expects {} channels, source has {channels}",
+                    dec.channels()
+                )));
+            }
+            Some(dec)
+        }
+        None => None,
+    };
+    let threshold = decoder.as_ref().map_or(1e-5, Decoder::zc_ssc_threshold);
+    let mut hand = VirtualHand::new();
+
     let total_samples = (args.duration * rate as f64) as i64;
     let chunk_dt = Duration::from_secs_f64(chunk_samples as f64 / rate as f64);
-    let threshold = 1e-5;
 
     info!(
         board = ?args.board,
@@ -134,6 +163,7 @@ fn run(args: Args) -> Result<(), MyoError> {
         window_samples,
         increment_samples,
         total_samples,
+        decoding = decoder.is_some(),
         "recording started"
     );
 
@@ -150,7 +180,20 @@ fn run(args: Args) -> Result<(), MyoError> {
         for window in windower.push(chunk.view()) {
             let fs = FeatureSet::extract(&window, threshold);
             windows_seen += 1;
-            info!(window = windows_seen, rms = ?fs.rms, "features");
+            match &decoder {
+                Some(dec) => {
+                    let pred = dec.predict(&fs.to_vec())?;
+                    hand.apply(&HandPose::from_class(&pred.label));
+                    info!(
+                        window = windows_seen,
+                        class = %pred.label,
+                        index = pred.class_index,
+                        scores = ?pred.scores,
+                        "prediction"
+                    );
+                }
+                None => info!(window = windows_seen, rms = ?fs.rms, "features"),
+            }
         }
 
         index += n as i64;
@@ -165,6 +208,7 @@ fn run(args: Args) -> Result<(), MyoError> {
         parquet = %paths.parquet.display(),
         meta = %paths.meta.display(),
         windows = windows_seen,
+        final_pose = ?hand.current(),
         "recording finished"
     );
     Ok(())
