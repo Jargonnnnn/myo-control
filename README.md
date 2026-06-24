@@ -76,11 +76,27 @@ Without `--model` the loop just records; with it, predictions drive the
 virtual hand. (Classification on synthetic *noise* is not meaningful — this
 proves the train → card → decode plumbing; real signal comes later.)
 
+### Watch it in 3D
+
+Add `--hand` to stream poses to a browser viewer (an articulated 3D hand that
+opens/closes with the decoded gesture):
+
+```bash
+cargo run -p myo-rt -- --board synthetic --fast --model models/lda.json --hand
+```
+
+Then open `viewer/hand.html` in a browser. It connects to the loop over
+WebSocket (`ws://127.0.0.1:8765`, override the port with `--hand-port` and
+`viewer/hand.html?port=NNNN`) and eases the finger curl toward each pose's
+closure target. three.js is vendored under `viewer/vendor/`, so it works
+offline. The loop runs fine whether or not a browser is connected.
+
 ## Repository layout
 
 ```
 crates/myo-rt/     Rust real-time control loop (acquisition → features → decode → effector)
 python/myotrain/   training + offline analysis (LDA, model-card export)
+viewer/            browser 3D hand viewer (WebSocket client, vendored three.js)
 data/              recording schema + protocol (raw recordings gitignored)
 docs/              architecture notes, design specs
 ```

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>myo-control · virtual hand</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #0d1117;
+        color: #c9d1d9;
+        font: 14px/1.4 system-ui, sans-serif;
+      }
+      #hud {
+        position: fixed;
+        top: 12px;
+        left: 14px;
+        z-index: 10;
+        pointer-events: none;
+      }
+      #pose {
+        font-size: 28px;
+        font-weight: 600;
+        color: #6fb3d2;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      #status {
+        opacity: 0.6;
+        margin-top: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hud">
+      <div id="pose">—</div>
+      <div id="status">connecting…</div>
+    </div>
+    <script type="module" src="./hand.js"></script>
+  </body>
+</html>

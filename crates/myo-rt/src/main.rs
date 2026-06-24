@@ -2,6 +2,7 @@ mod acquire;
 mod decode;
 mod effector;
 mod features;
+mod hand_web;
 mod sink;
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -14,6 +15,7 @@ use acquire::{EmgSource, SyntheticSource};
 use decode::Decoder;
 use effector::{Effector, HandPose, VirtualHand};
 use features::{FeatureSet, Windower};
+use hand_web::WebHand;
 use sink::{ParquetSink, SessionMeta};
 
 /// Errors surfaced by the real-time loop. One typed enum at the crate root for
@@ -28,6 +30,9 @@ pub enum MyoError {
 
     #[error("decode error: {0}")]
     Decode(String),
+
+    #[error("effector error: {0}")]
+    Effector(String),
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -79,6 +84,15 @@ struct Args {
     /// drives the virtual hand; without it, the loop just records.
     #[arg(long)]
     model: Option<String>,
+
+    /// Stream poses to a browser hand viewer over WebSocket (open
+    /// viewer/hand.html). Without this, the hand is logged in-process.
+    #[arg(long)]
+    hand: bool,
+
+    /// Port for the hand viewer WebSocket server.
+    #[arg(long, default_value_t = 8765)]
+    hand_port: u16,
 
     /// Skip real-time pacing and run as fast as possible.
     #[arg(long)]
@@ -151,7 +165,18 @@ fn run(args: Args) -> Result<(), MyoError> {
         None => None,
     };
     let threshold = decoder.as_ref().map_or(1e-5, Decoder::zc_ssc_threshold);
-    let mut hand = VirtualHand::new();
+
+    // The effector: a browser-streamed hand if requested, else in-process logging.
+    let mut hand: Box<dyn Effector> = if args.hand {
+        let web = WebHand::bind(&format!("127.0.0.1:{}", args.hand_port))?;
+        info!(
+            port = web.port(),
+            "hand viewer: open viewer/hand.html (ws://127.0.0.1:{})", args.hand_port
+        );
+        Box::new(web)
+    } else {
+        Box::new(VirtualHand::new())
+    };
 
     let total_samples = (args.duration * rate as f64) as i64;
     let chunk_dt = Duration::from_secs_f64(chunk_samples as f64 / rate as f64);

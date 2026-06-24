@@ -25,11 +25,26 @@ impl HandPose {
             name: name.to_string(),
         }
     }
+
+    /// Finger-curl target for this pose, in `[0, 1]` (0 = open, 1 = closed).
+    /// The viewer eases toward this; later proportional control sends a
+    /// continuous value over the same channel.
+    pub fn closure(&self) -> f32 {
+        match self.name.as_str() {
+            "open" => 0.0,
+            "close" => 1.0,
+            // rest and any unrecognised gesture relax to a near-open hand.
+            _ => 0.15,
+        }
+    }
 }
 
 /// Something that can be driven to a pose.
 pub trait Effector {
     fn apply(&mut self, pose: &HandPose);
+
+    /// The current pose name, if any has been applied.
+    fn current(&self) -> Option<&str>;
 }
 
 /// In-process virtual hand: tracks the current pose and logs transitions.
@@ -42,11 +57,6 @@ impl VirtualHand {
     pub fn new() -> Self {
         VirtualHand::default()
     }
-
-    /// The current pose name, if any has been applied.
-    pub fn current(&self) -> Option<&str> {
-        self.current.as_deref()
-    }
 }
 
 impl Effector for VirtualHand {
@@ -55,6 +65,10 @@ impl Effector for VirtualHand {
             info!(from = ?self.current, to = %pose.name, "virtual hand pose change");
             self.current = Some(pose.name.clone());
         }
+    }
+
+    fn current(&self) -> Option<&str> {
+        self.current.as_deref()
     }
 }
 
@@ -89,5 +103,14 @@ mod tests {
         hand.apply(&HandPose::from_class("rest"));
         hand.apply(&HandPose::from_class("rest"));
         assert_eq!(hand.current(), Some("rest"));
+    }
+
+    #[test]
+    fn closure_maps_poses_to_finger_curl() {
+        assert_eq!(HandPose::from_class("hand_open").closure(), 0.0);
+        assert_eq!(HandPose::from_class("hand_close").closure(), 1.0);
+        assert_eq!(HandPose::from_class("rest").closure(), 0.15);
+        // Unknown gestures rest the hand.
+        assert_eq!(HandPose::from_class("wrist_flex").closure(), 0.15);
     }
 }
