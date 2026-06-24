@@ -1,8 +1,8 @@
 """Deferred: ONNX export path.
 
 The Week-1 decoder uses a native-LDA model card (JSON) consumed directly by the
-Rust loop — no ONNX runtime — per PROJECT.md §4 ("reimplementing inference
-directly in Rust is acceptable and dependency-light") and the decoder spec.
+Rust loop — no ONNX runtime — because reimplementing trivially-linear inference
+in Rust is dependency-light (see the decoder spec under docs/).
 
 ONNX export becomes worthwhile once models stop being trivially linear (e.g.
 the Phase-4 nonlinear/ensemble decoders). At that point this module would use

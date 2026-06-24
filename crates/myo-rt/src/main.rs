@@ -19,7 +19,7 @@ use hand_web::WebHand;
 use sink::{ParquetSink, SessionMeta};
 
 /// Errors surfaced by the real-time loop. One typed enum at the crate root for
-/// now; split per-layer if it grows (see PROJECT.md coding conventions).
+/// now; split into per-layer enums if it grows.
 #[derive(Debug, Error)]
 pub enum MyoError {
     #[error("acquisition error: {0}")]

@@ -3,9 +3,8 @@
 Raw recordings live here but are **not committed** (see `.gitignore`). The
 curated multi-day drift dataset is published separately under CC-BY.
 
-The authoritative schema and recording protocol are defined in `PROJECT.md` §8.
-A fuller version of this README — schema table + protocol — is a Week-4
-deliverable. For now:
+A fuller version of this README — full schema table + recording protocol — is a
+Week-4 deliverable. The schema in brief:
 
 - One **parquet** file per recording session: columns `t_ms` (int64),
   `ch0…chN` (float32, µV), `label` (categorical gesture id; `rest` is a label).

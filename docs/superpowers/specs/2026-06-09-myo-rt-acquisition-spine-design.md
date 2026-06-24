@@ -51,7 +51,7 @@ myo-control/
 │   └── README.md           # stub; full schema/protocol is Week-4
 ```
 
-`sink.rs` is not in the PROJECT.md file list; it is added because §8's
+`sink.rs` is not in the original project file list; it is added because §8's
 parquet + sidecar output warrants its own focused module rather than living in
 `main.rs`. `decode.rs`, `effector.rs`, `feedback.rs`, `python/`, and
 `firmware/` are out of scope for this slice.
@@ -104,7 +104,7 @@ Defaults mirror the §8 meta.json example: 250 Hz, 8 channels.
 ## Dependencies
 
 - `ndarray`, `clap`, `tracing`, `tracing-subscriber`, `serde`, `serde_json`
-  — all PROJECT.md-sanctioned.
+  — all sanctioned by the project tech stack.
 - `arrow`, `parquet` — write the §8 parquet (spec calls for parquet I/O).
 - `thiserror` — typed per-layer error enum (`MyoError`); no `unwrap`/`expect`
   in the loop path.
