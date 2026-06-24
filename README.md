@@ -21,15 +21,20 @@ Design notes and architecture decisions live under [`docs/`](docs/).
 
 ## Status
 
-Phase 0, first slice: the real-time crate `myo-rt` runs end-to-end on a
-**synthetic** signal source (no hardware required):
+Phase 0: the full Week-1 loop runs end-to-end on a **synthetic** signal source
+(no hardware required) — acquisition through to a decoded gesture driving a
+virtual hand:
 
 ```
 synthetic EMG → windowing → time-domain features (RMS, MAV, WL, ZC, SSC)
               → parquet recording (+ .meta.json sidecar)
+              → LDA decode (trained model card) → virtual hand
 ```
 
-No decoder, real board, or effector yet.
+A baseline LDA is trained in Python (`myotrain`) on synthetic, separable data
+and exported as a model card the Rust loop reads directly (native LDA — no ONNX
+runtime). Still to come: a real acquisition path (BrainFlow), real recordings,
+proportional control, tactile feedback, and the multi-day drift study.
 
 ## Quick start
 
