@@ -39,18 +39,22 @@ pub struct SyntheticSource {
     elapsed: u64,
 }
 
-/// Per-channel amplitude for the gesture-demo cycle at `elapsed` samples:
-/// rest → open → close, two seconds each. `open` elevates the first half of
-/// the channels, `close` the second half — matching the trainer's profiles.
+/// Seconds the demo holds each phase of the gesture cycle.
+const GESTURE_PHASE_SECS: u64 = 3;
+
+/// Per-channel amplitude for the gesture-demo cycle at `elapsed` samples. The
+/// cycle is rest → open → rest → close (a relaxed hand between grasps, which
+/// looks far more natural), `GESTURE_PHASE_SECS` each. `open` elevates the
+/// first half of the channels, `close` the second half — matching the
+/// trainer's profiles.
 fn gesture_demo_amplitudes(elapsed: u64, sample_rate_hz: u32, channels: usize) -> Vec<f32> {
-    let phase = (elapsed / (sample_rate_hz as u64 * 2)) % 3;
+    let phase = (elapsed / (sample_rate_hz as u64 * GESTURE_PHASE_SECS)) % 4;
     let half = channels / 2;
     (0..channels)
         .map(|c| match phase {
-            0 => 5.0,               // rest
             1 if c < half => 40.0,  // open
-            2 if c >= half => 40.0, // close
-            _ => 5.0,
+            3 if c >= half => 40.0, // close
+            _ => 5.0,               // rest (phases 0 and 2) and inactive channels
         })
         .collect()
 }
@@ -144,24 +148,21 @@ mod tests {
     }
 
     #[test]
-    fn gesture_demo_cycles_rest_open_close() {
+    fn gesture_demo_cycles_rest_open_rest_close() {
         let rate = 250;
         let ch = 8;
-        let secs = |s: u64| s * rate as u64;
-        // rest: all channels low.
-        assert_eq!(gesture_demo_amplitudes(0, rate, ch), vec![5.0; 8]);
-        // open: first half elevated.
-        assert_eq!(
-            gesture_demo_amplitudes(secs(2), rate, ch),
-            vec![40.0, 40.0, 40.0, 40.0, 5.0, 5.0, 5.0, 5.0]
-        );
-        // close: second half elevated.
-        assert_eq!(
-            gesture_demo_amplitudes(secs(4), rate, ch),
-            vec![5.0, 5.0, 5.0, 5.0, 40.0, 40.0, 40.0, 40.0]
-        );
+        let p = GESTURE_PHASE_SECS;
+        let phase = |n: u64| gesture_demo_amplitudes(n * p * rate as u64, rate, ch);
+        // phase 0: rest.
+        assert_eq!(phase(0), vec![5.0; 8]);
+        // phase 1: open (first half elevated).
+        assert_eq!(phase(1), vec![40.0, 40.0, 40.0, 40.0, 5.0, 5.0, 5.0, 5.0]);
+        // phase 2: rest again (relaxed between grasps).
+        assert_eq!(phase(2), vec![5.0; 8]);
+        // phase 3: close (second half elevated).
+        assert_eq!(phase(3), vec![5.0, 5.0, 5.0, 5.0, 40.0, 40.0, 40.0, 40.0]);
         // wraps back to rest.
-        assert_eq!(gesture_demo_amplitudes(secs(6), rate, ch), vec![5.0; 8]);
+        assert_eq!(phase(4), vec![5.0; 8]);
     }
 
     #[test]

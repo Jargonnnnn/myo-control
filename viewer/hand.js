@@ -76,9 +76,16 @@ hand.add(thumb.root);
 fingers.push(thumb);
 
 // --- closure animation ---------------------------------------------------
-const MAX_CURL = 1.6; // radians per joint at closure = 1
+const MAX_CURL = 1.5; // radians of curl at the most-bent joint
+// Distal joints curl more than proximal ones — how a real finger folds.
+const JOINT_WEIGHT = [0.55, 0.9, 1.15];
+// Each finger eases at a slightly different speed and lags a touch, so they
+// don't all snap in lockstep (the thumb, last, is the slowest).
+const EASE = [0.05, 0.055, 0.05, 0.06, 0.04];
+
 let target = 0.15;
-let cur = 0.15;
+const fingerCur = fingers.map(() => 0.15); // per-finger current closure
+let lastT = performance.now();
 
 function setClosure(c) {
   target = Math.min(1, Math.max(0, c));
@@ -86,11 +93,19 @@ function setClosure(c) {
 
 function animate() {
   requestAnimationFrame(animate);
-  cur += (target - cur) * 0.15; // ease toward target
-  for (const f of fingers) {
-    for (const j of f.joints) j.rotation.x = cur * MAX_CURL;
+  const now = performance.now();
+  // Frame-rate-independent easing (normalise to 60fps).
+  const k = Math.min(1, ((now - lastT) / 16.67));
+  lastT = now;
+
+  for (let i = 0; i < fingers.length; i++) {
+    fingerCur[i] += (target - fingerCur[i]) * EASE[i] * k;
+    const c = fingerCur[i];
+    fingers[i].joints.forEach((j, jdx) => {
+      j.rotation.x = c * MAX_CURL * (JOINT_WEIGHT[jdx] ?? 1);
+    });
   }
-  hand.rotation.y = Math.sin(performance.now() * 0.0003) * 0.3; // gentle idle sway
+  hand.rotation.y = Math.sin(now * 0.00018) * 0.22; // slow, gentle idle sway
   renderer.render(scene, camera);
 }
 animate();
