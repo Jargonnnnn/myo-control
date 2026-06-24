@@ -97,6 +97,11 @@ struct Args {
     /// Skip real-time pacing and run as fast as possible.
     #[arg(long)]
     fast: bool,
+
+    /// Cycle the synthetic signal through rest/open/close so a trained decoder
+    /// produces visible gesture changes (demo aid).
+    #[arg(long)]
+    gesture_demo: bool,
 }
 
 fn ms_to_samples(ms: u32, rate: u32) -> usize {
@@ -120,6 +125,7 @@ fn run(args: Args) -> Result<(), MyoError> {
     let mut source = match args.board {
         Board::Synthetic => {
             SyntheticSource::new(args.rate, args.channels, chunk_samples, args.seed)
+                .with_gesture_demo(args.gesture_demo)
         }
     };
     // Trust the source for rate/channels; they may differ from CLI defaults

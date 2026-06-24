@@ -32,6 +32,27 @@ pub struct SyntheticSource {
     state: u32,
     /// One-pole low-pass state per channel (band-limits the white noise).
     lp: Vec<f32>,
+    /// When set, modulate per-channel amplitude to cycle rest/open/close so a
+    /// trained decoder produces visible gesture changes (demo aid, not a board).
+    gesture_demo: bool,
+    /// Samples emitted so far (drives the gesture cycle).
+    elapsed: u64,
+}
+
+/// Per-channel amplitude for the gesture-demo cycle at `elapsed` samples:
+/// rest → open → close, two seconds each. `open` elevates the first half of
+/// the channels, `close` the second half — matching the trainer's profiles.
+fn gesture_demo_amplitudes(elapsed: u64, sample_rate_hz: u32, channels: usize) -> Vec<f32> {
+    let phase = (elapsed / (sample_rate_hz as u64 * 2)) % 3;
+    let half = channels / 2;
+    (0..channels)
+        .map(|c| match phase {
+            0 => 5.0,               // rest
+            1 if c < half => 40.0,  // open
+            2 if c >= half => 40.0, // close
+            _ => 5.0,
+        })
+        .collect()
 }
 
 impl SyntheticSource {
@@ -45,7 +66,15 @@ impl SyntheticSource {
             // Avoid a zero state, which xorshift cannot escape.
             state: seed | 1,
             lp: vec![0.0; channels],
+            gesture_demo: false,
+            elapsed: 0,
         }
+    }
+
+    /// Enable the gesture-demo cycle (builder-style).
+    pub fn with_gesture_demo(mut self, on: bool) -> Self {
+        self.gesture_demo = on;
+        self
     }
 
     /// xorshift32 -> uniform noise in [-1.0, 1.0).
@@ -69,17 +98,29 @@ impl EmgSource for SyntheticSource {
     }
 
     fn poll(&mut self) -> Result<Array2<f32>, MyoError> {
-        // ~50 µV-scale band-limited noise, distinct per channel via the
-        // running filter state.
+        // Band-limited noise, distinct per channel via the running filter state.
+        // Amplitude is a flat ~50 µV, or the gesture-cycle profile when demoing.
         const ALPHA: f32 = 0.2; // low-pass smoothing factor
         const SCALE: f32 = 50.0; // microvolts
         let mut out = Array2::<f32>::zeros((self.chunk_samples, self.channels));
+        // The one-pole filter attenuates variance (~0.19 std), so demo
+        // amplitudes are scaled up to land in the trainer's feature range.
+        const DEMO_GAIN: f32 = 5.3;
         for s in 0..self.chunk_samples {
+            let amp = if self.gesture_demo {
+                gesture_demo_amplitudes(self.elapsed, self.sample_rate_hz, self.channels)
+                    .iter()
+                    .map(|a| a * DEMO_GAIN)
+                    .collect()
+            } else {
+                vec![SCALE; self.channels]
+            };
             for c in 0..self.channels {
                 let n = self.next_noise();
                 self.lp[c] += ALPHA * (n - self.lp[c]);
-                out[[s, c]] = self.lp[c] * SCALE;
+                out[[s, c]] = self.lp[c] * amp[c];
             }
+            self.elapsed += 1;
         }
         Ok(out)
     }
@@ -100,6 +141,27 @@ mod tests {
         assert_eq!(s.channel_count(), 8);
         let chunk = s.poll().unwrap();
         assert_eq!(chunk.shape(), &[64, 8]);
+    }
+
+    #[test]
+    fn gesture_demo_cycles_rest_open_close() {
+        let rate = 250;
+        let ch = 8;
+        let secs = |s: u64| s * rate as u64;
+        // rest: all channels low.
+        assert_eq!(gesture_demo_amplitudes(0, rate, ch), vec![5.0; 8]);
+        // open: first half elevated.
+        assert_eq!(
+            gesture_demo_amplitudes(secs(2), rate, ch),
+            vec![40.0, 40.0, 40.0, 40.0, 5.0, 5.0, 5.0, 5.0]
+        );
+        // close: second half elevated.
+        assert_eq!(
+            gesture_demo_amplitudes(secs(4), rate, ch),
+            vec![5.0, 5.0, 5.0, 5.0, 40.0, 40.0, 40.0, 40.0]
+        );
+        // wraps back to rest.
+        assert_eq!(gesture_demo_amplitudes(secs(6), rate, ch), vec![5.0; 8]);
     }
 
     #[test]

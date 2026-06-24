@@ -79,10 +79,13 @@ proves the train → card → decode plumbing; real signal comes later.)
 ### Watch it in 3D
 
 Add `--hand` to stream poses to a browser viewer (an articulated 3D hand that
-opens/closes with the decoded gesture):
+opens/closes with the decoded gesture). Add `--gesture-demo` to cycle the
+synthetic signal through rest/open/close so the hand visibly animates (without
+it, constant synthetic noise just decodes to `rest`):
 
 ```bash
-cargo run -p myo-rt -- --board synthetic --fast --model models/lda.json --hand
+cargo run -p myo-rt -- --board synthetic --duration 300 \
+    --model models/lda.json --hand --gesture-demo
 ```
 
 Then open `viewer/hand.html` in a browser. It connects to the loop over
