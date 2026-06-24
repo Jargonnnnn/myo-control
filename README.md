@@ -49,16 +49,38 @@ cargo fmt && cargo clippy --all-targets -- -D warnings
 Recorded sessions land in `data/sessions/` and are **git-ignored** — raw
 recordings are never committed (the curated dataset is published separately).
 
+### Close the loop with a trained decoder
+
+Train a baseline LDA (synthetic, separable data for now) and export a model
+card, then let the Rust loop decode live windows and drive the virtual hand:
+
+```bash
+# One-time: pinned Python env for training
+uv venv --python 3.12 python/myotrain/.venv
+uv pip install --python python/myotrain/.venv numpy scikit-learn
+
+# Train -> model card (JSON consumed directly by the Rust decoder; no ONNX)
+PYTHONPATH=python/myotrain python/myotrain/.venv/bin/python \
+    -m myotrain.train --out models/lda.json
+
+# Run the loop with the model: each window is classified and drives the hand
+cargo run -p myo-rt -- --board synthetic --fast --model models/lda.json
+```
+
+Without `--model` the loop just records; with it, predictions drive the
+virtual hand. (Classification on synthetic *noise* is not meaningful — this
+proves the train → card → decode plumbing; real signal comes later.)
+
 ## Repository layout
 
 ```
-crates/myo-rt/     Rust real-time control loop (acquisition → features → effector)
+crates/myo-rt/     Rust real-time control loop (acquisition → features → decode → effector)
+python/myotrain/   training + offline analysis (LDA, model-card export)
 data/              recording schema + protocol (raw recordings gitignored)
 docs/              architecture notes, design specs
 ```
 
-Future trees (`python/myotrain`, `firmware/`, `hardware/`) arrive with later
-phases.
+Future trees (`firmware/`, `hardware/`) arrive with later phases.
 
 ## Licensing
 

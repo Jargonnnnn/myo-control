@@ -4,3 +4,8 @@ Cargo.lock.orig
 
 # Local-only project context (not published)
 PROJECT.md
+
+# Python env + generated model artifacts
+.venv/
+__pycache__/
+/models/
