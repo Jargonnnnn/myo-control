@@ -1,6 +1,9 @@
 // Virtual hand viewer: renders a procedural hand and eases its finger curl
 // toward the latest `closure` streamed by the myo-rt loop over WebSocket.
-import * as THREE from "./vendor/three.module.js";
+//
+// Classic script (not an ES module) so it loads straight from file:// — browsers
+// block module imports from file:// origins. `THREE` is the global from
+// vendor/three.global.js, loaded before this script in hand.html.
 
 const PORT = new URLSearchParams(location.search).get("port") || "8765";
 
